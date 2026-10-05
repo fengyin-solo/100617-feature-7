@@ -3,68 +3,51 @@
     <header class="page-head">
       <div>
         <h2>进度节点管理</h2>
-        <p class="page-desc">维护进度节点，围绕节点编号、节点名称、计划完成日、实际完成日做登记、筛选与状态流转。</p>
+        <p class="page-desc">实际掘进量不单独登记，统一从掘进环次台账按节点环号区间实时重算，环次一变这里跟着变。</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" type="button" @click="openCreate">登记进度节点</button>
-        <button class="btn" type="button" @click="exportRows">导出进度节点清单</button>
+        <button class="btn" type="button" @click="reload">重新重算</button>
       </div>
     </header>
 
     <div class="stat-row">
-      <article v-for="item in stats" :key="item.label" class="stat-card">
+      <article v-for="item in statsCards" :key="item.label" class="stat-card">
         <span class="stat-label">{{ item.label }}</span>
-        <strong class="stat-value">{{ item.value }}</strong>
+        <strong class="stat-value" :class="{ 'warn-text': item.warn }">{{ item.value }}</strong>
       </article>
     </div>
-
-    <p class="status-legend">
-      <span v-for="item in statusSummary" :key="item.status" class="legend-item">
-        {{ item.status }}：{{ item.count }}
-      </span>
-    </p>
-
-    <form class="filter-bar" @submit.prevent="reload">
-      <label v-for="field in filterFields" :key="field" class="filter-item">
-        <span>{{ field }}</span>
-        <input v-model="filters[field]" :placeholder="`按${field}检索`" />
-      </label>
-      <button class="btn" type="submit">查询</button>
-      <button class="btn ghost" type="button" @click="resetFilters">重置条件</button>
-    </form>
 
     <table class="data-table">
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column">{{ column }}</th>
-          <th>当前状态</th>
-          <th>可执行动作</th>
+          <th>节点名称</th>
+          <th>计划掘进量(环)</th>
+          <th>实际已掘进(环)</th>
+          <th>其中已完成(环)</th>
+          <th>偏差(环)</th>
+          <th>计划完成日</th>
+          <th>实际完成日</th>
+          <th>节点状态</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
-          <td>{{ row.status }}</td>
-          <td class="row-actions">
-            <button
-              v-for="action in actions"
-              :key="action"
-              class="link"
-              type="button"
-              @click="runAction(action, row)"
-            >
-              {{ action }}
-            </button>
+        <tr v-for="row in ledger" :key="row.id">
+          <td>{{ row.name }}</td>
+          <td>{{ row.planRings }}</td>
+          <td><strong>{{ row.actualRings }}</strong></td>
+          <td>{{ row.completedRings }}</td>
+          <td :class="row.delta < 0 ? 'error-text' : 'ok-text'">
+            {{ row.delta > 0 ? `+${row.delta}` : row.delta }}
           </td>
-        </tr>
-        <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无进度节点数据，可先登记进度节点</td>
+          <td>{{ row.planDate }}</td>
+          <td>{{ row.actualDate || '—' }}</td>
+          <td>{{ row.status }}</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条进度节点记录</span>
+      <span>实际掘进量 / 完成环数实时取自掘进环次台账（两处入口同一份），不在本台账重复登记。</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -73,63 +56,30 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import {
-  downloadEntries,
-  listEntries,
-  moduleMeta,
-  runAction as applyAction,
-} from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import { progressLedger } from '@/api/local-service'
+import type { ProgressLedgerRow } from '@/api/local-service'
 
-const meta = moduleMeta('progress')
-const columns = ["节点编号", "节点名称", "计划完成日", "实际完成日", "计划掘进量", "实际掘进量", "偏差天数", "节点状态"]
-const actions = ["开始节点", "确认完成", "登记延期"]
-const statuses = ["未开始", "进行中", "已完成", "已延期"]
-const stats = [{"label": "进行中节点", "value": 0}, {"label": "已完成节点", "value": 0}, {"label": "延期节点", "value": 0}]
-
-const rows = ref<EntryRow[]>([])
-const total = ref(0)
+const ledger = ref<ProgressLedgerRow[]>([])
 const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
-const statusSummary = computed(() =>
-  statuses.map((status: string) => ({
-    status,
-    count: rows.value.filter((row) => String(row.status) === status).length,
-  })),
-)
 
-function resetFilters() {
-  filters.value = {}
-  reload()
-}
-
-function exportRows() {
-  downloadEntries(meta.key)
-}
-
-function openCreate() {
-  errorMessage.value = '进度节点登记入口尚未接入审批流'
-}
-
-function runAction(action: string, row: EntryRow) {
-  errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
-  if (!result.ok) {
-    errorMessage.value = result.message
-    return
-  }
-  reload()
-}
+const statsCards = computed(() => {
+  const plan = ledger.value.reduce((sum, item) => sum + item.planRings, 0)
+  const actual = ledger.value.reduce((sum, item) => sum + item.actualRings, 0)
+  const done = ledger.value.reduce((sum, item) => sum + item.completedRings, 0)
+  return [
+    { label: '计划掘进总量(环)', value: plan, warn: false },
+    { label: '实际已掘进(环，台账重算)', value: actual, warn: false },
+    { label: '已贯通/纠偏完成(环)', value: done, warn: false },
+    { label: '计划偏差(环)', value: actual - plan, warn: actual - plan < 0 },
+  ]
+})
 
 function reload() {
   errorMessage.value = ''
   try {
-    const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
-    total.value = payload.total
+    ledger.value = progressLedger()
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '进度节点列表读取失败'
+    errorMessage.value = error instanceof Error ? error.message : '进度台账重算失败'
   }
 }
 

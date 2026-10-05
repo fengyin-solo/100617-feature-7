@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '@/views/Dashboard.vue'
 const Shield = () => import('@/views/shield/index.vue')
 const Ring = () => import('@/views/ring/index.vue')
+const RingDetail = () => import('@/views/ring/detail.vue')
 const Segment = () => import('@/views/segment/index.vue')
 const Grouting = () => import('@/views/grouting/index.vue')
 const Muck = () => import('@/views/muck/index.vue')
@@ -26,6 +27,10 @@ const router = createRouter({
     { path: '/', name: 'dashboard', component: Dashboard },
     { path: '/shield', name: 'shield', component: Shield },
     { path: '/ring', name: 'ring', component: Ring },
+    // 全项目共享入口：同一个取数页面，路径以 shared 开头时只给只读视图。
+    { path: '/ring/shared', name: 'ring-shared', component: Ring },
+    { path: '/ring/detail/:id', name: 'ring-detail', component: RingDetail },
+    { path: '/ring/shared/detail/:id', name: 'ring-shared-detail', component: RingDetail },
     { path: '/segment', name: 'segment', component: Segment },
     { path: '/grouting', name: 'grouting', component: Grouting },
     { path: '/muck', name: 'muck', component: Muck },

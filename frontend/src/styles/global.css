@@ -35,3 +35,36 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .error-text { color: #b42318; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
 .legend-item { background: #eef2f7; border-radius: 999px; padding: 2px 10px; }
+.badge { font-size: 12px; font-weight: 400; border-radius: 999px; padding: 2px 10px; vertical-align: middle; margin-left: 8px; }
+.badge.readonly { background: #fff4e5; color: #b54708; border: 1px solid #fed7aa; }
+.overlay-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.overlay-title { font-size: 14px; margin: 0 0 10px; }
+.data-table.compact th, .data-table.compact td { padding: 6px 8px; font-size: 12px; }
+.filter-item select { padding: 4px 6px; }
+.range-inputs { display: inline-flex; align-items: center; gap: 6px; }
+.range-inputs input { width: 92px; }
+.range-inputs em { font-style: normal; color: var(--muted); }
+.no-result { background: #fff; border: 1px dashed #f0a8a0; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; color: #7a271a; }
+.no-result-title { font-weight: 600; margin: 0 0 6px; }
+.diagnosis-list { margin: 6px 0 0; padding-left: 18px; }
+.diagnosis-list li { margin: 2px 0; }
+.pager { display: flex; align-items: center; gap: 12px; justify-content: center; margin: 12px 0; font-size: 13px; }
+.pager .btn:disabled { opacity: .5; cursor: not-allowed; }
+.speed-edit { display: inline-flex; align-items: center; gap: 6px; }
+.speed-input { width: 72px; padding: 2px 6px; }
+.muted-hint { color: var(--muted); font-size: 12px; }
+.ok-text { color: #067647; }
+.warn-text { color: #b54708; }
+.alert-banner { background: #fef3f2; border: 1px solid #f0a8a0; color: #b42318; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; }
+.stat-card.alert.focus { border-color: #f0a8a0; background: #fff7f6; }
+.detail-grid { display: flex; gap: 12px; margin-bottom: 14px; }
+.detail-card { flex: 1; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; position: relative; }
+.detail-card.focus { border-color: var(--brand); }
+.card-unit { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.detail-table { max-width: 720px; margin-bottom: 14px; }
+.detail-table th { width: 180px; background: #f8fafc; }
+.row-over-limit { background: #fff7f6; }
+.app-head { gap: 16px; align-items: center; }
+.head-user { display: inline-flex; gap: 12px; align-items: center; }
+.identity-switch select { margin-left: 4px; padding: 2px 4px; }
+.shift-label { white-space: nowrap; }
