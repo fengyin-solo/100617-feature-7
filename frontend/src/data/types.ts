@@ -20,16 +20,32 @@ export type ModuleMeta = {
   metrics: string[]
 }
 
+export type SortDirection = 'asc' | 'desc'
+
+export type PageQuery = {
+  page?: number
+  size?: number
+  sortBy?: string
+  sortOrder?: SortDirection
+  readonly?: boolean
+  actor?: string
+  actorCrew?: string
+  actorRole?: string
+}
+
 export type PageResult = {
   items: EntryRow[]
   total: number
   page: number
   size: number
+  mismatch?: string
 }
 
 export type ActionResult = {
   ok: boolean
   message: string
+  deduplicated?: boolean
+  rejected?: boolean
 }
 
 export type OverviewResult = {

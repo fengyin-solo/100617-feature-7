@@ -2,136 +2,74 @@
   <section class="page" data-module="axis">
     <header class="page-head">
       <div>
-        <h2>轴线偏差管理</h2>
-        <p class="page-desc">维护轴线测量，围绕测量编号、对应环号、设计轴线、实测轴线做登记、筛选与状态流转。</p>
+        <h2>轴线偏差复核清单</h2>
+        <p class="page-desc">复核清单不另存台账，直接从掘进环次投影；这里的超限条数与掘进环次页面实时一致。</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" type="button" @click="openCreate">登记轴线测量</button>
-        <button class="btn" type="button" @click="exportRows">导出轴线偏差清单</button>
+        <RouterLink class="btn" :to="{ name: 'ring' }">返回掘进环次台账</RouterLink>
       </div>
     </header>
 
     <div class="stat-row">
-      <article v-for="item in stats" :key="item.label" class="stat-card">
-        <span class="stat-label">{{ item.label }}</span>
-        <strong class="stat-value">{{ item.value }}</strong>
+      <article class="stat-card">
+        <span class="stat-label">超限环次（掘进环次口径）</span>
+        <strong class="stat-value">{{ reviews.length }}</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">本页复核清单条数</span>
+        <strong class="stat-value">{{ reviews.length }}</strong>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">复核阈值</span>
+        <strong class="stat-value">水平/垂直 &gt; {{ RING_LIMIT_MM }} mm</strong>
       </article>
     </div>
-
-    <p class="status-legend">
-      <span v-for="item in statusSummary" :key="item.status" class="legend-item">
-        {{ item.status }}：{{ item.count }}
-      </span>
-    </p>
-
-    <form class="filter-bar" @submit.prevent="reload">
-      <label v-for="field in filterFields" :key="field" class="filter-item">
-        <span>{{ field }}</span>
-        <input v-model="filters[field]" :placeholder="`按${field}检索`" />
-      </label>
-      <button class="btn" type="submit">查询</button>
-      <button class="btn ghost" type="button" @click="resetFilters">重置条件</button>
-    </form>
 
     <table class="data-table">
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column">{{ column }}</th>
-          <th>当前状态</th>
-          <th>可执行动作</th>
+          <th>复核序号</th>
+          <th>测量编号</th>
+          <th>对应环号</th>
+          <th>掘进日期</th>
+          <th>掘进班组</th>
+          <th>设计轴线</th>
+          <th>水平偏差</th>
+          <th>垂直偏差</th>
+          <th>复核状态</th>
+          <th>环次详情</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
-          <td>{{ row.status }}</td>
-          <td class="row-actions">
-            <button
-              v-for="action in actions"
-              :key="action"
-              class="link"
-              type="button"
-              @click="runAction(action, row)"
-            >
-              {{ action }}
-            </button>
-          </td>
+        <tr v-for="row in reviews" :key="String(row.id)">
+          <td>{{ row['复核序号'] }}</td>
+          <td>{{ row['测量编号'] }}</td>
+          <td>{{ row['对应环号'] }}</td>
+          <td>{{ row['掘进日期'] || '待安排' }}</td>
+          <td>{{ row['掘进班组'] }}</td>
+          <td>{{ row['设计轴线'] }}</td>
+          <td class="warning">{{ row['水平偏差'] }} mm</td>
+          <td class="warning">{{ row['垂直偏差'] }} mm</td>
+          <td><span class="tag danger">超限待复核</span></td>
+          <td><RouterLink class="link" :to="{ name: 'ring-detail', params: { ringNo: Number(row['对应环号']) } }">查看环次</RouterLink></td>
         </tr>
-        <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无轴线偏差数据，可先登记轴线测量</td>
+        <tr v-if="!reviews.length">
+          <td colspan="10" class="empty-state">暂无超限环次；两处台账当前均为 0 条。</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条轴线偏差记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span>唯一事实源：掘进环次台账；本页只读，不能绕过班组记录员改数据。</span>
     </footer>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 
-import {
-  downloadEntries,
-  listEntries,
-  moduleMeta,
-  runAction as applyAction,
-} from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import { listOverLimitReviews } from '@/api/ring-service'
+import { RING_LIMIT_MM } from '@/data/ring-domain'
 
-const meta = moduleMeta('axis')
-const columns = ["测量编号", "对应环号", "设计轴线", "实测轴线", "水平偏差", "垂直偏差", "纠偏措施", "测量状态"]
-const actions = ["提交测量", "执行纠偏", "标记超限"]
-const statuses = ["待测量", "测量中", "已纠偏", "超限"]
-const stats = [{"label": "待测量环数", "value": 0}, {"label": "超限环数", "value": 0}, {"label": "平均偏差", "value": 0}]
-
-const rows = ref<EntryRow[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
-const statusSummary = computed(() =>
-  statuses.map((status: string) => ({
-    status,
-    count: rows.value.filter((row) => String(row.status) === status).length,
-  })),
-)
-
-function resetFilters() {
-  filters.value = {}
-  reload()
-}
-
-function exportRows() {
-  downloadEntries(meta.key)
-}
-
-function openCreate() {
-  errorMessage.value = '轴线测量登记入口尚未接入审批流'
-}
-
-function runAction(action: string, row: EntryRow) {
-  errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
-  if (!result.ok) {
-    errorMessage.value = result.message
-    return
-  }
-  reload()
-}
-
-function reload() {
-  errorMessage.value = ''
-  try {
-    const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
-    total.value = payload.total
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '轴线偏差列表读取失败'
-  }
-}
-
-onMounted(reload)
+const reviews = computed(() => listOverLimitReviews())
 </script>

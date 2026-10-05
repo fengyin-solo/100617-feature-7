@@ -1,3 +1,4 @@
+import { buildSeedRings, migrateRingRow } from './ring-domain'
 import { SEED_ROWS } from './seed'
 import type { EntryRow } from './types'
 
@@ -8,8 +9,19 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function normalizeModule(key: string, rows: EntryRow[]): EntryRow[] {
+  if (key !== 'ring') {
+    return rows
+  }
+  const oldById = new Map(rows.map((row) => [Number(row.id), row]))
+  // 新台账给出 24 环完整骨架；旧库里的前三环按 id 合入，状态和人工改过的速度等字段继续保留。
+  return buildSeedRings().map((seedRow) => migrateRingRow(oldById.get(Number(seedRow.id)) ?? seedRow))
+}
+
 function readStorage(): Record<string, EntryRow[]> {
-  const fallback = clone(SEED_ROWS)
+  const fallback = Object.fromEntries(
+    Object.entries(clone(SEED_ROWS)).map(([key, rows]) => [key, normalizeModule(key, rows)]),
+  )
   if (typeof window === 'undefined' || !window.localStorage) {
     return fallback
   }
@@ -20,7 +32,12 @@ function readStorage(): Record<string, EntryRow[]> {
   }
   try {
     const parsed = JSON.parse(raw) as Record<string, EntryRow[]>
-    return { ...fallback, ...parsed }
+    const merged = { ...fallback, ...parsed }
+    const normalized = Object.fromEntries(
+      Object.entries(merged).map(([key, rows]) => [key, normalizeModule(key, rows)]),
+    )
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+    return normalized
   } catch {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback))
     return fallback
